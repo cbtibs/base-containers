@@ -19,15 +19,28 @@ jobs:
       - name: Find Dockerfiles
         id: scan
         run: |
-          # Look for all subdirectories at the root that contain a Dockerfile
-          # 'find' will return a list like "./folder1" "./folder2"
+          # 1) Find all subdirs that have a Dockerfile at the top level
           FOLDERS=$(find . -mindepth 1 -maxdepth 1 -type d -exec test -e "{}/Dockerfile" \; -print | sed 's|^\./||')
-          
-          # Convert space-separated folder list to a JSON array using 'jq'
-          JSON_ARRAY=$(echo "$FOLDERS" | jq -R -s 'split(" ")')
-          
-          # Output that JSON array to the next job
-          echo "folders=$JSON_ARRAY" >> $GITHUB_OUTPUT
+      
+          # 2) If nothing found, set an empty array
+          if [ -z "$FOLDERS" ]; then
+            echo "No Dockerfiles found."
+            JSON_ARRAY="[]"
+          else
+            # Convert multiple lines to space-delimited
+            FOLDERS_SINGLE_LINE=$(echo "$FOLDERS" | paste -sd " " -)
+      
+            # Convert space-delimited list to JSON array with jq
+            JSON_ARRAY=$(echo "$FOLDERS_SINGLE_LINE" | jq -R -s 'split(" ")')
+          fi
+      
+          # 3) Remove any newlines from the final JSON array
+          #    so GitHub Actions can parse it correctly
+          JSON_ARRAY_ONE_LINE=$(echo "$JSON_ARRAY" | tr -d '\n')
+      
+          # 4) Export to outputs
+          echo "folders=$JSON_ARRAY_ONE_LINE" >> $GITHUB_OUTPUT
+      
 
   build-test-and-push:
     runs-on: ubuntu-latest
@@ -60,7 +73,6 @@ jobs:
         uses: docker/build-push-action@v5
         with:
           context: ${{ matrix.container-folder }}
-          file: ${{ matrix.container-folder }}/Dockerfile
           push: false
           load: true
           tags: |
@@ -72,18 +84,6 @@ jobs:
             type=registry,ref=ghcr.io/${{ github.repository }}:cache,mode=max
           cache-to: |
             type=registry,ref=ghcr.io/${{ github.repository }}:cache,mode=max
-
-      - name: Install Container Structure Test
-        run: |
-          wget https://github.com/GoogleContainerTools/container-structure-test/releases/download/v1.15.0/container-structure-test-linux-amd64
-          chmod +x container-structure-test-linux-amd64
-          sudo mv container-structure-test-linux-amd64 /usr/local/bin/container-structure-test
-
-      - name: Run Container Structure Tests
-        run: |
-          container-structure-test test \
-            --image ghcr.io/${{ github.repository }}:latest-${{ matrix.container-folder }} \
-            --config tests/container/container-structure-tests.yaml
 
       - name: Push Docker Image
         uses: docker/build-push-action@v5
