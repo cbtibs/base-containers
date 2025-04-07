@@ -1,55 +1,42 @@
 name: Container Build
+
 on:
   push:
-    branches: [ "main" ]
+    branches:
+      - main
   pull_request:
-    branches: [ "main" ]
 
 jobs:
   discover-dockerfiles:
     runs-on: ubuntu-latest
     outputs:
-      matrix: ${{ steps.scan.outputs.folders }}
-
+      matrix: ${{ steps.find_dockerfiles.outputs.matrix }}
     steps:
       - name: Checkout repository
         uses: actions/checkout@v4
 
-      - name: Find Dockerfiles
-        id: scan
+      - name: Discover Dockerfiles
+        id: find_dockerfiles
         run: |
-          # 1) Find all subdirs that have a Dockerfile at the top level
-          FOLDERS=$(find . -mindepth 1 -maxdepth 1 -type d -exec test -e "{}/Dockerfile" \; -print | sed 's|^\./||')
-      
-          # 2) If nothing found, set an empty array
-          if [ -z "$FOLDERS" ]; then
-            echo "No Dockerfiles found."
-            JSON_ARRAY="[]"
+          echo "Searching for Dockerfiles in subdirectories..."
+          docker_dirs=$(find . -mindepth 2 -type f -name Dockerfile -exec dirname {} \; | sed 's|^\./||' | sort | uniq)
+          echo "Found docker directories:"
+          echo "$docker_dirs"
+          if [ -z "$docker_dirs" ]; then
+            matrix="[]"
           else
-            # Convert multiple lines to space-delimited
-            FOLDERS_SINGLE_LINE=$(echo "$FOLDERS" | paste -sd " " -)
-      
-            # Convert space-delimited list to JSON array with jq
-            JSON_ARRAY=$(echo "$FOLDERS_SINGLE_LINE" | jq -R -s 'split(" ")')
+            matrix=$(echo "$docker_dirs" | jq -R -s -c 'split("\n")[:-1]')
           fi
-      
-          # 3) Remove any newlines from the final JSON array
-          #    so GitHub Actions can parse it correctly
-          JSON_ARRAY_ONE_LINE=$(echo "$JSON_ARRAY" | tr -d '\n')
-      
-          # 4) Export to outputs
-          echo "folders=$JSON_ARRAY_ONE_LINE" >> $GITHUB_OUTPUT
-      
+          echo "Generated matrix: $matrix"
+          echo "matrix=$matrix" >> $GITHUB_OUTPUT
 
   build-test-and-push:
     runs-on: ubuntu-latest
     needs: discover-dockerfiles
-
     strategy:
       fail-fast: false
       matrix:
         container-folder: ${{ fromJson(needs.discover-dockerfiles.outputs.matrix) }}
-
     steps:
       - name: Checkout repository
         uses: actions/checkout@v4
@@ -85,11 +72,11 @@ jobs:
             type=registry,ref=ghcr.io/${{ github.repository }}:cache,mode=max
 
       - name: Push Docker Image
-        uses: docker/build-push-action@v5
         if: github.ref == 'refs/heads/main' && success()
+        uses: docker/build-push-action@v5
         with:
           context: ${{ matrix.container-folder }}
-          file: ${{ matrix.container-folder }}/Dockerfile
+          file: Dockerfile
           push: true
           tags: |
             ghcr.io/${{ github.repository }}:${{ env.SHORT_SHA }}-${{ matrix.container-folder }}
