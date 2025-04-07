@@ -1,5 +1,4 @@
-name: Container Build and Test
-
+name: Container Build
 on:
   push:
     branches: [ "main" ]
