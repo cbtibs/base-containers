@@ -21,25 +21,24 @@ RUN apt-get update && \
       lib32gcc-s1 \
       lib32stdc++6 \
       libfreetype6 \
-      winbind \
-    && rm -rf /var/lib/apt/lists/* \
-    && echo "en_US.UTF-8 UTF-8" > /etc/locale.gen \
-    && locale-gen
-
-RUN groupadd -r -g ${STEAM_GID} steam \
-    && useradd -r -u ${STEAM_UID} -g steam -m steam
+      winbind && \
+    rm -rf /var/lib/apt/lists/* && \
+    echo "en_US.UTF-8 UTF-8" > /etc/locale.gen && \
+    locale-gen && \
+    rm -f /etc/machine-id && \
+    dbus-uuidgen --ensure=/etc/machine-id && \
+    groupadd -r -g ${STEAM_GID} steam && \
+    useradd -r -u ${STEAM_UID} -g steam -m steam
 
 USER steam
 WORKDIR /home/steam
 
-RUN mkdir -p "$STEAMCMD_DIR" && \
+RUN mkdir -p "$STEAMCMD_DIR" "$PROTON_DIR" && \
     cd "$STEAMCMD_DIR" && \
     curl -sL https://steamcdn-a.akamaihd.net/client/installer/steamcmd_linux.tar.gz \
       | tar -zxvf - && \
     chmod +x steamcmd.sh && \
-    ln -s steamcmd.sh steamcmd
-
-RUN mkdir -p "$PROTON_DIR" && \
+    ln -s steamcmd.sh steamcmd && \
     curl -sL "https://github.com/GloriousEggroll/proton-ge-custom/releases/download/GE-Proton${PROTON_VERSION}/GE-Proton${PROTON_VERSION}.tar.gz" \
       | tar -zxvf - -C "$PROTON_DIR"
 
