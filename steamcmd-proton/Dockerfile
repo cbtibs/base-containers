@@ -9,7 +9,6 @@ ENV DEBIAN_FRONTEND=noninteractive \
     LC_ALL=en_US.UTF-8 \
     HOME=/home/steam \
     STEAMCMD_DIR=/home/steam/steamcmd \
-    PROTON_DIR=/home/steam/proton-ge \
     PATH="/home/steam/steamcmd:${PATH}"
 
 RUN apt-get update && \
@@ -34,13 +33,15 @@ RUN apt-get update && \
 USER steam
 WORKDIR /home/steam
 
-RUN mkdir -p "$STEAMCMD_DIR" "$PROTON_DIR" && \
+RUN mkdir -p "$STEAMCMD_DIR" \
+    /home/steam/.steam/steam/compatibilitytools.d \
+    /home/steam/.steam/steam/steamapps && \
     cd "$STEAMCMD_DIR" && \
     curl -sL https://steamcdn-a.akamaihd.net/client/installer/steamcmd_linux.tar.gz \
       | tar -zxvf - && \
     chmod +x steamcmd.sh && \
     ln -s steamcmd.sh steamcmd && \
     curl -sL "https://github.com/GloriousEggroll/proton-ge-custom/releases/download/GE-Proton${PROTON_VERSION}/GE-Proton${PROTON_VERSION}.tar.gz" \
-      | tar -zxvf - -C "$PROTON_DIR"
+      | tar -zxvf - -C /home/steam/.steam/steam/compatibilitytools.d
 
 CMD ["/bin/bash"]
