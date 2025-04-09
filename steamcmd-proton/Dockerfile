@@ -4,16 +4,14 @@ ARG CONTAINER_GID=10000
 ARG CONTAINER_UID=10000
 
 ENV DEBIAN_FRONTEND="noninteractive"  
-ENV STEAM_APP_ID="2278520"  
 ENV HOME="/home/steam"  
 ENV GE_PROTON_VERSION="9-25"  
 ENV GE_PROTON_URL="https://github.com/GloriousEggroll/proton-ge-custom/releases/download/GE-Proton${GE_PROTON_VERSION}/GE-Proton${GE_PROTON_VERSION}.tar.gz"
-ENV PROTON_PATH="/home/steam/steamcmd/compatibilitytools.d/GE-Proton{$GE_PROTON_VERSION}"
+ENV PROTON_PATH="/home/steam/steamcmd/compatibilitytools.d/GE-Proton$GE_PROTON_VERSION"
 ENV STEAMCMD_PATH="/home/steam/steamcmd"  
 ENV STEAM_SDK64_PATH="/home/steam/.steam/sdk64"  
 ENV STEAM_SDK32_PATH="/home/steam/.steam/sdk32"  
 ENV STEAM_COMPAT_CLIENT_INSTALL_PATH="$STEAMCMD_PATH"  
-ENV STEAM_COMPAT_DATA_PATH="${STEAMCMD_PATH}/steamapps/compatdata/${STEAM_APP_ID}"  
 ENV UMU_ID=0
 
 RUN groupadd -g $CONTAINER_GID steam && \
@@ -33,7 +31,6 @@ RUN groupadd -g $CONTAINER_GID steam && \
 USER steam
 
 RUN mkdir -p "${STEAMCMD_PATH}/compatibilitytools.d" && \
-    mkdir -p "${STEAMCMD_PATH}/steamapps/compatdata/${STEAM_APP_ID}" && \
     curl -sqL https://steamcdn-a.akamaihd.net/client/installer/steamcmd_linux.tar.gz | tar zxvf - -C ${STEAMCMD_PATH} && \
     chmod +x ${STEAMCMD_PATH}/steamcmd.sh && \
     ${STEAMCMD_PATH}/steamcmd.sh +quit && \
