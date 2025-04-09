@@ -1,47 +1,47 @@
-FROM debian:bookworm-slim
+FROM debian:12-slim
 
-ARG STEAM_UID=1000
-ARG STEAM_GID=1000
-ARG PROTON_VERSION=9-25
+ARG CONTAINER_GID=10000
+ARG CONTAINER_UID=10000
 
-ENV DEBIAN_FRONTEND=noninteractive \
-    LANG=en_US.UTF-8 \
-    LC_ALL=en_US.UTF-8 \
-    HOME=/home/steam \
-    STEAMCMD_DIR=/home/steam/steamcmd \
-    PATH="/home/steam/steamcmd:${PATH}"
+ENV DEBIAN_FRONTEND="noninteractive"  
+ENV STEAM_APP_ID="2278520"  
+ENV HOME="/home/steam"  
+ENV GE_PROTON_VERSION="9-25"  
+ENV GE_PROTON_URL="https://github.com/GloriousEggroll/proton-ge-custom/releases/download/GE-Proton${GE_PROTON_VERSION}/GE-Proton${GE_PROTON_VERSION}.tar.gz"
+ENV PROTON_PATH="/home/steam/steamcmd/compatibilitytools.d/GE-Proton{$GE_PROTON_VERSION}"
+ENV STEAMCMD_PATH="/home/steam/steamcmd"  
+ENV STEAM_SDK64_PATH="/home/steam/.steam/sdk64"  
+ENV STEAM_SDK32_PATH="/home/steam/.steam/sdk32"  
+ENV STEAM_COMPAT_CLIENT_INSTALL_PATH="$STEAMCMD_PATH"  
+ENV STEAM_COMPAT_DATA_PATH="${STEAMCMD_PATH}/steamapps/compatdata/${STEAM_APP_ID}"  
+ENV UMU_ID=0
 
-RUN apt-get update && \
-    apt-get install --no-install-recommends -y \
-      ca-certificates \
-      curl \
-      dbus-bin \
-      file \
-      locales \
-      lib32gcc-s1 \
-      lib32stdc++6 \
-      libfreetype6 \
-      winbind && \
-    rm -rf /var/lib/apt/lists/* && \
-    echo "en_US.UTF-8 UTF-8" > /etc/locale.gen && \
+RUN groupadd -g $CONTAINER_GID steam && \
+    useradd -g $CONTAINER_GID -u $CONTAINER_UID -m steam && \
+    dpkg --add-architecture i386 && \
+    apt-get update && \
+    apt-get install --no-install-recommends -y procps ca-certificates winbind dbus libfreetype6 curl jq locales lib32gcc-s1 && \
+    echo 'LANG="en_US.UTF-8"' > /etc/default/locale && \
+    echo "en_US.UTF-8 UTF-8" >> /etc/locale.gen && \
     locale-gen && \
     rm -f /etc/machine-id && \
     dbus-uuidgen --ensure=/etc/machine-id && \
-    groupadd -r -g ${STEAM_GID} steam && \
-    useradd -r -u ${STEAM_UID} -g steam -m steam
+    rm -rf /var/lib/apt/lists/* && \
+    apt-get clean && \
+    apt-get autoremove -y
 
 USER steam
-WORKDIR /home/steam
 
-RUN mkdir -p "$STEAMCMD_DIR" \
-    /home/steam/.steam/steam/compatibilitytools.d \
-    /home/steam/.steam/steam/steamapps && \
-    cd "$STEAMCMD_DIR" && \
-    curl -sL https://steamcdn-a.akamaihd.net/client/installer/steamcmd_linux.tar.gz \
-      | tar -zxvf - && \
-    chmod +x steamcmd.sh && \
-    ln -s steamcmd.sh steamcmd && \
-    curl -sL "https://github.com/GloriousEggroll/proton-ge-custom/releases/download/GE-Proton${PROTON_VERSION}/GE-Proton${PROTON_VERSION}.tar.gz" \
-      | tar -zxvf - -C /home/steam/.steam/steam/compatibilitytools.d
+RUN mkdir -p "${STEAMCMD_PATH}/compatibilitytools.d" && \
+    mkdir -p "${STEAMCMD_PATH}/steamapps/compatdata/${STEAM_APP_ID}" && \
+    curl -sqL https://steamcdn-a.akamaihd.net/client/installer/steamcmd_linux.tar.gz | tar zxvf - -C ${STEAMCMD_PATH} && \
+    chmod +x ${STEAMCMD_PATH}/steamcmd.sh && \
+    ${STEAMCMD_PATH}/steamcmd.sh +quit && \
+    mkdir -p /home/steam/.steam && \
+    ln -s ${STEAMCMD_PATH}/linux64 ${STEAM_SDK64_PATH} && \
+    ln -s ${STEAM_SDK64_PATH}/steamclient.so ${STEAM_SDK64_PATH}/steamservice.so && \
+    ln -s ${STEAMCMD_PATH}/linux32 ${STEAM_SDK32_PATH} && \
+    ln -s ${STEAM_SDK32_PATH}/steamclient.so ${STEAM_SDK32_PATH}/steamservice.so && \
+    curl -sqL "$GE_PROTON_URL" | tar zxvf - -C "${STEAMCMD_PATH}/compatibilitytools.d/"
 
 CMD ["/bin/bash"]
